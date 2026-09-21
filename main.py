@@ -1,14 +1,13 @@
 from fastapi import FastAPI
 import ccxt
 import os
-import asyncio
 import threading
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import uvicorn
 
 app = FastAPI()
 exchange = ccxt.binance()
-
 coins = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
 
 @app.get("/")
@@ -22,18 +21,16 @@ def get_all_signals():
         try:
             ticker = exchange.fetch_ticker(coin)
             price = ticker['last']
-            # Simple logic: agar 24h se upar hai to BUY
             signal = "BUY" if price > ticker['open'] else "SELL"
             result.append({"coin": coin, "price": price, "signal": signal})
         except Exception as e:
             result.append({"coin": coin, "error": str(e)})
     return result
 
-# --- Telegram Part ---
 TOKEN = os.getenv("TELEGRAM") or os.getenv("TELEGRAM_BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bot Active hai! ✅\n /signals likho to price check kar sakte ho.\n\nYe bot ab 24 ghante chalega!")
+    await update.message.reply_text("Bot Active hai! ✅ /signals likho")
 
 async def signals_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = "📊 Live Signals:\n\n"
@@ -52,5 +49,8 @@ def run_bot():
     print("Telegram Bot Polling Started...")
     application.run_polling()
 
-# Bot ko background me chalao taake FastAPI bhi chalta rahe
 threading.Thread(target=run_bot, daemon=True).start()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
